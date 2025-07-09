@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#000000">
-    <title>Webcam</title>
+    <title>Camera</title>
 
 ```
 <!-- PWA Manifest -->
@@ -43,11 +43,29 @@
         transform: scaleX(-1); /* Mirror the video */
     }
     
-    #startButton {
+    #startContainer {
         position: fixed;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
+        text-align: center;
+    }
+    
+    #cameraSelect {
+        padding: 15px 30px;
+        font-size: 16px;
+        background: #222;
+        color: white;
+        border: 1px solid #444;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        cursor: pointer;
+        display: block;
+        width: 200px;
+    }
+    
+    #startButton {
         padding: 20px 40px;
         font-size: 18px;
         background: #333;
@@ -57,6 +75,8 @@
         cursor: pointer;
         font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         transition: background 0.2s;
+        display: block;
+        width: 200px;
     }
     
     #startButton:active {
@@ -75,75 +95,30 @@
         max-width: 80%;
         display: none;
     }
-    
-    #cameraToggle {
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        width: 50px;
-        height: 50px;
-        background: rgba(255, 255, 255, 0.2);
-        border: 2px solid rgba(255, 255, 255, 0.5);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        transition: all 0.2s;
-        display: none;
-    }
-    
-    #cameraToggle:active {
-        transform: scale(0.9);
-        background: rgba(255, 255, 255, 0.3);
-    }
-    
-    #cameraToggle svg {
-        width: 24px;
-        height: 24px;
-        fill: white;
-    }
-    
-    /* Hide UI elements in standalone mode for cleaner look */
-    @media (display-mode: standalone) {
-        #cameraToggle {
-            bottom: 40px;
-        }
-    }
 </style>
 ```
 
 </head>
 <body>
     <video id="videoElement" playsinline autoplay muted></video>
-    <button id="startButton">Start Camera</button>
+    <div id="startContainer">
+        <select id="cameraSelect">
+            <option value="user">Front Camera</option>
+            <option value="environment">Back Camera</option>
+        </select>
+        <button id="startButton">Start Camera</button>
+    </div>
     <div id="errorMessage"></div>
 
 ```
-<div id="cameraToggle">
-    <svg viewBox="0 0 24 24">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-    </svg>
-</div>
-
 <script>
     const video = document.getElementById('videoElement');
     const startButton = document.getElementById('startButton');
     const errorMessage = document.getElementById('errorMessage');
-    const cameraToggle = document.getElementById('cameraToggle');
+    const cameraSelect = document.getElementById('cameraSelect');
+    const startContainer = document.getElementById('startContainer');
     
     let currentStream = null;
-    let facingMode = 'user'; // Start with front camera
-    let constraints = {
-        video: {
-            facingMode: facingMode,
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-        },
-        audio: false
-    };
     
     async function startCamera() {
         try {
@@ -152,52 +127,44 @@
                 currentStream.getTracks().forEach(track => track.stop());
             }
             
+            // Get selected camera
+            const facingMode = cameraSelect.value;
+            
+            // Update mirror effect based on camera
+            if (facingMode === 'user') {
+                video.style.transform = 'scaleX(-1)';
+            } else {
+                video.style.transform = 'scaleX(1)';
+            }
+            
+            // Set constraints
+            const constraints = {
+                video: {
+                    facingMode: facingMode,
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                },
+                audio: false
+            };
+            
             // Get camera stream
             currentStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = currentStream;
             
-            // Hide start button and show camera toggle
-            startButton.style.display = 'none';
+            // Hide start container
+            startContainer.style.display = 'none';
             errorMessage.style.display = 'none';
-            
-            // Only show toggle if we have multiple cameras
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(device => device.kind === 'videoinput');
-            if (videoDevices.length > 1) {
-                cameraToggle.style.display = 'flex';
-            }
             
         } catch (err) {
             console.error('Error accessing camera:', err);
-            startButton.style.display = 'none';
+            startContainer.style.display = 'none';
             errorMessage.style.display = 'block';
             errorMessage.textContent = 'Unable to access camera. Please ensure you have granted camera permissions.';
         }
     }
     
-    // Toggle between front and back camera
-    async function toggleCamera() {
-        facingMode = facingMode === 'user' ? 'environment' : 'user';
-        constraints.video.facingMode = facingMode;
-        
-        // Update mirror effect
-        if (facingMode === 'user') {
-            video.style.transform = 'scaleX(-1)';
-        } else {
-            video.style.transform = 'scaleX(1)';
-        }
-        
-        // Update icon
-        cameraToggle.innerHTML = facingMode === 'user' ? 
-            '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' :
-            '<svg viewBox="0 0 24 24"><path d="M9 3L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-3.17L15 3H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>';
-        
-        await startCamera();
-    }
-    
     // Event listeners
     startButton.addEventListener('click', startCamera);
-    cameraToggle.addEventListener('click', toggleCamera);
     
     // Auto-start camera if we already have permissions
     navigator.permissions.query({ name: 'camera' }).then(result => {
